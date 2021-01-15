@@ -123,6 +123,9 @@ resources:
               name: CSV
               data: tests/data/obs.csv
               id_field: id
+              title_field: 
+                  en: station_en
+                  fr: station_fr
               geometry:
                   x_field: long
                   y_field: lat
@@ -151,6 +154,7 @@ resources:
               name: GeoJSON
               data: tests/data/ne_110m_lakes.geojson
               id_field: id
+              title_field: name
 
     gdps-temperature:
         type: collection
