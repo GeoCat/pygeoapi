@@ -837,10 +837,10 @@ class API:
             return headers_, 400, to_json(exception, self.pretty_print)
 
         LOGGER.debug('Loading provider')
-        prv = get_provider_by_type(collections[dataset]['providers'], 
-                                   'feature')
+
         try:
-            p = load_plugin('provider', prv)
+            p = load_plugin('provider', get_provider_by_type(
+                collections[dataset]['providers'], 'feature'))
         except ProviderTypeError:
             exception = {
                 'code': 'NoApplicableCode',
@@ -1054,6 +1054,8 @@ class API:
             content['dataset_path'] = '/'.join(path_info.split('/')[:-1])
             content['collections_path'] = '/'.join(path_info.split('/')[:-2])
             content['startindex'] = startindex
+            prv = get_provider_by_type(collections[dataset]['providers'],
+                                       'feature')
             if 'title_field' in prv:
                 content['title_field'] = prv['title_field']
             content['id_field'] = prv['id_field']
@@ -1124,11 +1126,10 @@ class API:
             return headers_, 400, to_json(exception, self.pretty_print)
 
         LOGGER.debug('Loading provider')
-        prv = get_provider_by_type(collections[dataset]['providers'],
-                                   'feature')
 
         try:
-            p = load_plugin('provider', prv)
+            p = load_plugin('provider', get_provider_by_type(
+                collections[dataset]['providers'], 'feature'))
         except ProviderTypeError:
             exception = {
                 'code': 'NoApplicableCode',
@@ -1217,6 +1218,8 @@ class API:
             headers_['Content-Type'] = 'text/html'
 
             content['title'] = collections[dataset]['title']
+            prv = get_provider_by_type(collections[dataset]['providers'],
+                                       'feature')
             content['id_field'] = prv['id_field']
             if 'title_field' in prv:
                 content['title_field'] = prv['title_field']
