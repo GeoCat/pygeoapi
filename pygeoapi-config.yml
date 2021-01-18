@@ -123,7 +123,6 @@ resources:
               name: CSV
               data: tests/data/obs.csv
               id_field: id
-              title_field: station_en
               geometry:
                   x_field: long
                   y_field: lat
