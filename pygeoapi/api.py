@@ -107,12 +107,11 @@ def pre_process(func):
         cls = args[0]
         headers_ = HEADERS.copy()
         format_ = check_format(args[2], args[1])
-        locale_ = check_locale(args[2], args[1])
         if len(args) > 3:
             args = args[3:]
-            return func(cls, headers_, format_, locale_, *args, **kwargs)
+            return func(cls, headers_, format_, *args, **kwargs)
         else:
-            return func(cls, headers_, format_, locale_)
+            return func(cls, headers_, format_)
 
     return inner
 
@@ -159,14 +158,13 @@ class API:
 
     @pre_process
     @jsonldify
-    def landing_page(self, headers_, format_, locale_):
+    def landing_page(self, headers_, format_):
         """
         Provide API
 
         :param headers_: copy of HEADERS object
         :param format_: format of requests, pre checked by
                         pre_process decorator
-        :param locale_: language of requests
 
         :returns: tuple of headers, status code, content
         """
@@ -252,7 +250,7 @@ class API:
         return headers_, 200, to_json(fcm, self.pretty_print)
 
     @pre_process
-    def openapi(self, headers_, format_, locale_, openapi):
+    def openapi(self, headers_, format_, openapi):
         """
         Provide OpenAPI document
 
@@ -260,7 +258,6 @@ class API:
         :param headers_: copy of HEADERS object
         :param format_: format of requests, pre checked by
                         pre_process decorator
-        :param locale_: language of requests
         :param openapi: dict of OpenAPI definition
 
         :returns: tuple of headers, status code, content
@@ -290,14 +287,13 @@ class API:
         return headers_, 200, to_json(openapi, self.pretty_print)
 
     @pre_process
-    def conformance(self, headers_, format_, locale_):
+    def conformance(self, headers_, format_):
         """
         Provide conformance definition
 
         :param headers_: copy of HEADERS object
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests
 
         :returns: tuple of headers, status code, content
         """
@@ -324,14 +320,13 @@ class API:
 
     @pre_process
     @jsonldify
-    def describe_collections(self, headers_, format_, locale_, dataset=None):
+    def describe_collections(self, headers_, format_, dataset=None):
         """
         Provide collection metadata
 
         :param headers_: copy of HEADERS object
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests
         :param dataset: name of collection
 
         :returns: tuple of headers, status code, content
@@ -639,14 +634,13 @@ class API:
 
     @pre_process
     @jsonldify
-    def get_collection_queryables(self, headers_, format_, locale_, dataset=None):
+    def get_collection_queryables(self, headers_, format_, dataset=None):
         """
         Provide collection queryables
 
         :param headers_: copy of HEADERS object
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests
         :param dataset: name of collection
 
         :returns: tuple of headers, status code, content
@@ -734,7 +728,7 @@ class API:
         headers_ = HEADERS.copy()
 
         properties = []
-        reserved_fieldnames = ['bbox', 'f', 'l', 'limit', 'startindex',
+        reserved_fieldnames = ['bbox', 'f', 'limit', 'startindex',
                                'resulttype', 'datetime', 'sortby',
                                'properties', 'skipGeometry']
         formats = FORMATS
@@ -752,9 +746,6 @@ class API:
             return headers_, 400, to_json(exception, self.pretty_print)
 
         format_ = check_format(args, headers)
-        locale_ = check_locale(args, headers)
-        if not locale_:
-            locale_ = self.config['server']['language']
 
         if format_ is not None and format_ not in formats:
             exception = {
@@ -845,8 +836,9 @@ class API:
             LOGGER.error(exception)
             return headers_, 400, to_json(exception, self.pretty_print)
 
-        prv = get_provider_by_type(collections[dataset]['providers'], 'feature')
         LOGGER.debug('Loading provider')
+        prv = get_provider_by_type(collections[dataset]['providers'], 
+                                   'feature')
         try:
             p = load_plugin('provider', prv)
         except ProviderTypeError:
@@ -1061,9 +1053,10 @@ class API:
             content['items_path'] = path_info
             content['dataset_path'] = '/'.join(path_info.split('/')[:-1])
             content['collections_path'] = '/'.join(path_info.split('/')[:-2])
-            content['title_field'] = translated_key(prv['title_field'],locale_)
-            content['id_field'] = prv['id_field']
             content['startindex'] = startindex
+            if 'title_field' in prv:
+                content['title_field'] = prv['title_field']
+            content['id_field'] = prv['id_field']
 
             content = render_j2_template(self.config,
                                          'collections/items/index.html',
@@ -1096,21 +1089,18 @@ class API:
         return headers_, 200, to_json(content, self.pretty_print)
 
     @pre_process
-    def get_collection_item(self, headers_, format_, locale_, dataset, identifier):
+    def get_collection_item(self, headers_, format_, dataset, identifier):
         """
         Get a single collection item
 
         :param headers_: copy of HEADERS object
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests
         :param dataset: dataset name
         :param identifier: item identifier
 
         :returns: tuple of headers, status code, content
         """
-        if not locale_:
-            locale_ = self.config['server']['language']
 
         if format_ is not None and format_ not in FORMATS:
             exception = {
@@ -1133,9 +1123,10 @@ class API:
             LOGGER.error(exception)
             return headers_, 400, to_json(exception, self.pretty_print)
 
-        prv = get_provider_by_type(collections[dataset]['providers'], 'feature')
-
         LOGGER.debug('Loading provider')
+        prv = get_provider_by_type(collections[dataset]['providers'],
+                                   'feature')
+
         try:
             p = load_plugin('provider', prv)
         except ProviderTypeError:
@@ -1227,7 +1218,8 @@ class API:
 
             content['title'] = collections[dataset]['title']
             content['id_field'] = prv['id_field']
-            content['title_field'] = translated_key(prv['title_field'],locale_)
+            if 'title_field' in prv:
+                content['title_field'] = prv['title_field']
 
             content = render_j2_template(self.config,
                                          'collections/items/item.html',
@@ -1552,14 +1544,13 @@ class API:
 
     @pre_process
     @jsonldify
-    def get_collection_tiles(self, headers_, format_, locale_, dataset=None):
+    def get_collection_tiles(self, headers_, format_, dataset=None):
         """
         Provide collection tiles
 
         :param headers_: copy of HEADERS object
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests        
         :param dataset: name of collection
 
         :returns: tuple of headers, status code, content
@@ -1681,7 +1672,6 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
         :param headers: copy of HEADERS object
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests
         :param dataset: dataset name
         :param matrix_id: matrix identifier
         :param z_idx: z index
@@ -1783,7 +1773,7 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
 
     @pre_process
     @jsonldify
-    def get_collection_tiles_metadata(self, headers_, format_, locale_, dataset=None,
+    def get_collection_tiles_metadata(self, headers_, format_, dataset=None,
                                       matrix_id=None):
         """
         Get collection items tiles
@@ -1791,7 +1781,6 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
         :param headers_: copy of HEADERS object
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests
         :param dataset: dataset name
         :param matrix_id: matrix identifier
 
@@ -1877,14 +1866,13 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
 
     @pre_process
     @jsonldify
-    def describe_processes(self, headers_, format_, locale_, process=None):
+    def describe_processes(self, headers_, format_, process=None):
         """
         Provide processes metadata
 
         :param headers: dict of HTTP headers
         :param format_: format of requests,
                         pre checked by pre_process decorator
-        :param locale_: language of requests
         :param process: process identifier, defaults to None to obtain
                         information about all processes
 
@@ -2364,7 +2352,7 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
 
     @pre_process
     @jsonldify
-    def get_stac_root(self, headers_, format_, locale_):
+    def get_stac_root(self, headers_, format_):
 
         if format_ is not None and format_ not in FORMATS:
             exception = {
@@ -2416,7 +2404,7 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
 
     @pre_process
     @jsonldify
-    def get_stac_path(self, headers_, format_, locale_, path):
+    def get_stac_path(self, headers_, format_, path):
 
         if format_ is not None and format_ not in FORMATS:
             exception = {
@@ -2512,26 +2500,6 @@ tiles/{{{}}}/{{{}}}/{{{}}}/{{{}}}?f=mvt'
             return headers_, 200, stac_data
 
 
-def check_locale(args, headers):
-    """
-    check language requested from arguments or headers
-
-    :param args: dict of request keyword value pairs
-    :param headers: dict of request headers
-
-    :returns: locale value
-    """
-    # Optional l=en or l=fr query param
-    # overrides accept-language
-    locale_ = args.get('l')
-    if locale_:
-        return locale_
-
-    if 'Accept-Language' in headers.keys():
-        return headers['Accept-Language'].split("-")[0]
-    
-    return None
-
 def check_format(args, headers):
     """
     check format requested from arguments or headers
@@ -2605,25 +2573,6 @@ def validate_bbox(value=None):
 
     return bbox
 
-def translated_key(val , lang):
-    """
-    Helper function while parsing config yaml, some keys can have direct string value 
-    or multiple language childs, if so, get the one matching current language (or first)
-
-    :param val: `dict` of configuration resource definition
-    :param lang: `str` language
-
-    :returns: `str` translated key
-    """
-    if isinstance(val, str):
-        return val
-    elif val is not None: #multilingual
-        if (lang in val):
-            return val[lang]
-        else: #use first
-            return next(iter(val.values))
-    else:
-        return None
 
 def validate_datetime(resource_def, datetime_=None):
     """
