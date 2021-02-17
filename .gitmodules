@@ -1,0 +1,3 @@
+[submodule "pygeoapi-skin-dashboard"]
+	path = pygeoapi-skin-dashboard
+	url = https://github.com/GeoCat/pygeoapi-skin-dashboard
