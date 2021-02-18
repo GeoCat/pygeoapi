@@ -1079,11 +1079,6 @@ class API:
             content['dataset_path'] = '/'.join(path_info.split('/')[:-1])
             content['collections_path'] = '/'.join(path_info.split('/')[:-2])
             content['startindex'] = startindex
-            prv = get_provider_by_type(collections[dataset]['providers'],
-                                       'feature')
-            if 'title_field' in prv:
-                content['title_field'] = prv['title_field']
-            content['id_field'] = prv['id_field']
 
             if p.title_field is not None:
                 content['title_field'] = p.title_field
