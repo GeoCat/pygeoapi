@@ -51,7 +51,7 @@ class GeoCoreProvider(BaseProvider):
 
         def unescape(match):
             """ Unescape string and replace double quotes with single ones. """
-            bytes_ = match.group(0).encode()
+            bytes_ = match.group(0).encode('latin1')
             return bytes_.decode('unicode_escape').replace('""', '"').strip('"')
 
         result = {}
@@ -68,6 +68,15 @@ class GeoCoreProvider(BaseProvider):
             LOGGER.error('Failed to parse JSON response', exc_info=err)
         finally:
             return result
+
+    @staticmethod
+    def _valid_id(identifier):
+        """ Returns True if the given identifier is a valid UUID. """
+        try:
+            str(UUID(identifier))
+        except (TypeError, ValueError, AttributeError):
+            return False
+        return True
 
     def _request_json(self, url, params):
         """ Performs a GET request on `url` and returns the JSON response. """
@@ -87,38 +96,57 @@ class GeoCoreProvider(BaseProvider):
         LOGGER.debug(response.text)
         return self._parse_json(response.text)
 
-    @staticmethod
-    def _to_geojson(json_obj):
+    def _to_geojson(self, json_obj, skip_geometry=False):
         """ Turns a regular geoCore JSON object into GeoJSON. """
-        feature_collection = {
-            'type': 'FeatureCollection',
-        }
         features = []
 
         for item in json_obj.get('Items', []):
             feature = {
-                'type': 'Feature'
+                'type': 'Feature',
+                'geometry': None
             }
-            # Remove coordinates from item and make Polygon geometry
-            coords = item.pop('coordinates', None)
-            if not coords:
-                LOGGER.debug('skipped record without geometry')
+            # Pop ID an move it to top level
+            id_ = item.pop('id')
+            if not self._valid_id(id_):
+                LOGGER.warning(f'skipped record with ID {id_}: not a UUID')
                 continue
-            if not isinstance(coords, list):
-                # TODO: make safe
-                coords = json.loads(coords)
-            feature['geometry'] = {
-                'type': 'Polygon',
-                'coordinates': coords
-            }
+            feature['id'] = id_
+
+            if not skip_geometry:
+                # Remove coordinates from item and make Polygon geometry
+                coords = item.pop('coordinates', [])
+                if not isinstance(coords, list):
+                    LOGGER.debug('try convert coordinates to an array')
+                    try:
+                        coords = json.loads(coords)
+                    except json.JSONDecodeError as err:
+                        LOGGER.warning(f'failed to parse coords: {err}')
+                        coords = []
+                if not coords:
+                    LOGGER.debug('record has no geometry')
+                else:
+                    feature['geometry'] = {
+                        'type': 'Polygon',
+                        'coordinates': coords
+                    }
+            else:
+                LOGGER.debug('skipped geometry')
+
             # Set properties and add to feature list
             feature['properties'] = item
             features.append(feature)
 
         if not features:
             raise ProviderNoDataError('query returned nothing')
-        feature_collection['features'] = features
-        return feature_collection
+        elif len(features) == 1:
+            LOGGER.debug('returning single feature')
+            return features[0]
+
+        LOGGER.debug('returning feature collection')
+        return {
+            'type': 'FeatureCollection',
+            'features': features
+        }
 
     def query(self, startindex=0, limit=10, resulttype='results',
               bbox=[], datetime_=None, properties=[], sortby=[],
@@ -166,27 +194,24 @@ class GeoCoreProvider(BaseProvider):
         json_obj = self._request_json(self._query_url, params)
 
         LOGGER.debug(f'turn geoCore JSON into GeoJSON')
-        return self._to_geojson(json_obj)
+        return self._to_geojson(json_obj, skip_geometry)
 
     def get(self, identifier):
         """ Request a single geoCore record by ID. """
-        LOGGER.debug('validate identifier')
-        try:
-            id_ = str(UUID(identifier))
-        except (TypeError, ValueError, AttributeError) as err:
-            LOGGER.error(err)
+        LOGGER.debug('validating identifier')
+        if not self._valid_id(identifier):
             raise ProviderInvalidQueryError(
                 f'{identifier} is not a valid UUID identifier')
 
         params = {
-            'id': id_
+            'id': identifier
         }
 
         LOGGER.debug(f'querying {self._get_url}')
         json_obj = self._request_json(self._get_url, params)
 
         if not json_obj.get('Items', []):
-            raise ProviderItemNotFoundError(f'record id {id_} not found')
+            raise ProviderItemNotFoundError(f'record id {identifier} not found')
 
         LOGGER.debug(f'turn geoCore JSON into GeoJSON')
         return self._to_geojson(json_obj)
