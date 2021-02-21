@@ -1,4 +1,4 @@
-elasticsearch==7.1.0
+elasticsearch>=7.11.0
 fiona
 GDAL>=3.0.0
 netCDF4
@@ -9,3 +9,4 @@ rasterio
 scipy
 xarray
 zarr
+requests

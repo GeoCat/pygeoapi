@@ -139,9 +139,9 @@ class TinyDBCatalogueProvider(BaseProvider):
                 time_begin, time_end = datetime_.split('/')
 
                 if time_begin != '..':
-                    QUERY.append("(Q.properties[self.time_field]>='{}')".format(datetime_))  # noqa
+                    QUERY.append("(Q.properties[self.time_field]>='{}')".format(time_begin))  # noqa
                 if time_end != '..':
-                    QUERY.append("(Q.properties[self.time_field]<='{}')".format(datetime_))  # noqa
+                    QUERY.append("(Q.properties[self.time_field]<='{}')".format(time_end))  # noqa
 
             else:  # time instant
                 LOGGER.debug('detected time instant')
@@ -161,8 +161,8 @@ class TinyDBCatalogueProvider(BaseProvider):
         LOGGER.debug('SEARCH_STRING: {}'.format(SEARCH_STRING))
 
         LOGGER.debug('querying database')
-
         if len(QUERY) > 0:
+            LOGGER.debug('running eval on {}'.format(SEARCH_STRING))
             results = eval(SEARCH_STRING)
         else:
             results = self.db.all()
@@ -197,7 +197,7 @@ class TinyDBCatalogueProvider(BaseProvider):
             results.sort(key=lambda k: k['properties'][sortby[0]['property']],
                          reverse=sort_reverse)
 
-        feature_collection['features'] = results[startindex:limit]
+        feature_collection['features'] = results[startindex:startindex + limit]
 
         return feature_collection
 
@@ -214,11 +214,11 @@ class TinyDBCatalogueProvider(BaseProvider):
 
         record = self.db.get(Query().properties[self.id_field] == identifier)
 
+        if record is None:
+            raise ProviderItemNotFoundError('record does not exist')
+
         for e in self.excludes:
             del record['properties'][e]
-
-        if len(record) < 1:
-            raise ProviderItemNotFoundError('record does not exist')
 
         return record
 
