@@ -87,6 +87,8 @@ class TinyDBCatalogueProvider(BaseProvider):
             if p not in self.excludes + ['extent']:
                 fields[p] = 'string'
 
+        fields['q'] = 'string'
+
         return fields
 
     def query(self, startindex=0, limit=10, resulttype='results',
@@ -189,7 +191,7 @@ class TinyDBCatalogueProvider(BaseProvider):
 
         if sortby:
             LOGGER.debug('Sorting results')
-            if sortby[0]['order'] == 'D':
+            if sortby[0]['order'] == '-':
                 sort_reverse = True
             else:
                 sort_reverse = False
